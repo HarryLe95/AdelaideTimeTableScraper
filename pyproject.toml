@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "adelaidetimetablescapper"
+version = "0.1.0"
+description = ""
+authors = ["HoangLe <hoang.le@consilium.technology>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+bs4 = "^0.0.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
