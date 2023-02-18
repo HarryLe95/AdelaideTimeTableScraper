@@ -1,7 +1,7 @@
 from bs4 import BeautifulSoup
 import requests 
 from dataclasses import dataclass
-from typing import Sequence, Any
+from typing import Sequence, Any, Optional
 
 home_url = "https://access.adelaide.edu.au/courses"
 base_url = "https://access.adelaide.edu.au/courses/search.asp"
@@ -72,21 +72,29 @@ class ClassSchedule:
                 else:
                     self._classes[class_type] = [item]
                     
+def get_html_response(url: str, params: Optional[dict[str,Any]]=None, retries: int=10)->str:
+    for time in range(retries):
+        try:
+            response = requests.get(url, params=params)
+            validate_response(response)
+            return response.text
+        except Exception as e: 
+            if time != (retries - 1):
+                continue 
+            raise e
 
 def validate_response(response: requests.models.Response)->None: 
     if response.status_code != requests.codes.ok: 
         response.raise_for_status()
 
-def get_subject_area_url(area:str, year:int=2023)->str:
+def format_subject_area_params(area:str, year:int=2023)->dict[str, Any]:
     if " " in area: 
         area = area.replace(" ", "+")
-    return f"{base_url}?year={year}&m=r&subject={area}"
+    return {"year":year, "m": "r", "subject": area}
 
 def get_all_subject_areas()->dict[str,str]:
     # Enter base url
-    response = requests.get(base_url)
-    validate_response(response)
-    html_content = response.text
+    html_content = get_html_response(base_url, None)
     
     # Parse html content
     soup = BeautifulSoup(html_content, "html5lib")
@@ -97,12 +105,10 @@ def get_all_subject_areas()->dict[str,str]:
 def get_area_courses(area:str)->dict[str, Subject]:
     courses = {}
     # Enter Course Search page
-    url = get_subject_area_url(area)
-    response = requests.get(url)
-    validate_response(response)
+    params = format_subject_area_params(area)
+    html_content = get_html_response(base_url, params)
     
-    # Parse html content
-    html_content = response.text
+    # Parse html
     soup = BeautifulSoup(html_content, "html5lib") 
     content_div = soup.find("div", attrs={"class":"content"})
     table_body = content_div.find("p")
@@ -126,11 +132,9 @@ def get_area_courses(area:str)->dict[str, Subject]:
 def get_course_timetable(course: Subject|str)->ClassSchedule:
     classes = []
     if isinstance(course, Subject):
-        response = requests.get(f"{home_url}/{course.url}")
+        html_content = get_html_response(f"{home_url}/{course.url}")
     else:
-        response = requests.get(course)
-    validate_response(response)
-    html_content = response.text
+        html_content = get_html_response(course)
     soup = BeautifulSoup(html_content, "html5lib")
     table_rows = soup.find("div",attrs={"id":"hidedata04_1"}).find_all("tr")
     
